@@ -170,6 +170,23 @@ button { font-family: inherit; }
 .tb-clock { font-size: 12px; letter-spacing: 0.2em; color: var(--ink); }
 .rec-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff2222; box-shadow: 0 0 8px #ff2222; animation: ledPulse 1.2s infinite; }
 
+.t-btn {
+  pointer-events: auto; min-width: 26px; height: 22px; padding: 0 6px; cursor: pointer;
+  font-size: 9px; letter-spacing: 0.1em; color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--p) 35%, transparent);
+  background: rgba(0,0,0,0.55); transition: all .15s;
+}
+.t-btn:hover { background: color-mix(in srgb, var(--p) 20%, black); }
+.t-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.t-btn.on { background: var(--p); color: #000; }
+.t-btn.rec.on { background: #ff2222; border-color: #ff2222; color: #fff; box-shadow: 0 0 14px rgba(255,34,34,0.7); }
+.tb-transport, .tb-telemetry { flex-wrap: wrap; justify-content: flex-end; }
+.tb-telemetry { gap: 8px; }
+.micro.dim { color: color-mix(in srgb, var(--dim) 70%, transparent); }
+.micro.warn { color: var(--h); }
+.bpm { -webkit-appearance: none; appearance: none; width: 74px; height: 3px; background: #222; outline: none; cursor: pointer; }
+.bpm::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 9px; border-radius: 50%; background: var(--a); cursor: pointer; }
+
 .mic-btn {
   pointer-events: auto; display: flex; align-items: center; gap: 7px;
   padding: 5px 10px; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
@@ -212,7 +229,14 @@ button { font-family: inherit; }
 }
 .panel-title .pt-sub { font-family: 'Space Mono', monospace; font-size: 8px; letter-spacing: 0.2em; color: var(--dim); }
 
-.reality-panel { position: fixed; left: 14px; bottom: 14px; z-index: 55; width: 288px; }
+.rack-left {
+  position: fixed; left: 14px; top: 96px; bottom: 14px; z-index: 55;
+  width: 286px; display: flex; flex-direction: column; gap: 10px;
+  pointer-events: none; overflow: hidden;
+}
+.rack-left > .panel, .rack-right > .panel { pointer-events: auto; }
+.rack-left .reality-panel, .rack-left .patch-panel { position: static; width: auto; }
+.reality-panel { flex: 0 0 auto; }
 .reality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
 .r-btn {
@@ -232,7 +256,61 @@ button { font-family: inherit; }
 .r-btn.active .r-idx { color: rgba(0,0,0,0.6); }
 .r-btn.active .r-glyph { color: #000; text-shadow: none; }
 
-.chorus-panel { position: fixed; right: 14px; bottom: 14px; z-index: 55; width: 288px; }
+.rack-right {
+  position: fixed; right: 14px; top: 96px; bottom: 14px; z-index: 55;
+  width: 300px; display: flex; flex-direction: column; gap: 10px;
+  pointer-events: none; overflow: hidden;
+}
+.rack-right .chorus-panel, .rack-right .macro-panel { position: static; width: auto; }
+.chorus-panel { flex: 0 0 auto; }
+.macro-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.macro-panel::-webkit-scrollbar { width: 4px; }
+.macro-panel::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--p) 50%, transparent); }
+
+/* ------------------------------------------------------------------
+   patch browser
+------------------------------------------------------------------ */
+.patch-list { display: flex; flex-direction: column; gap: 5px; }
+.p-btn {
+  pointer-events: auto; display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 6px 9px; cursor: pointer; color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--p) 22%, transparent);
+  background: rgba(0,0,0,0.4); transition: all .15s;
+}
+.p-btn:hover { background: color-mix(in srgb, var(--p) 12%, black); }
+.p-btn.active {
+  border-color: var(--p); background: color-mix(in srgb, var(--p) 20%, black);
+  box-shadow: inset 0 0 18px color-mix(in srgb, var(--p) 22%, transparent);
+}
+.p-name { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; }
+.p-tag { font-size: 8px; letter-spacing: 0.08em; color: var(--dim); }
+.panel-foot { margin-top: 10px; font-size: 8px; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; }
+.ghost-btn {
+  pointer-events: auto; margin-top: 10px; width: 100%; padding: 6px; cursor: pointer;
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink);
+  border: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
+  background: transparent; transition: all .15s;
+}
+.ghost-btn:hover { border-color: var(--p); color: var(--p); background: color-mix(in srgb, var(--p) 10%, black); }
+.btn-row { display: flex; gap: 8px; margin-top: 10px; }
+.btn-row .discharge { flex: 1; margin-top: 0; }
+
+/* ------------------------------------------------------------------
+   macro rack
+------------------------------------------------------------------ */
+.macro-grid { display: flex; flex-direction: column; gap: 7px; }
+.macro { display: grid; grid-template-columns: 74px 1fr 52px; align-items: center; gap: 8px; }
+.macro-label { font-size: 8px; letter-spacing: 0.16em; color: var(--dim); text-transform: uppercase; }
+.macro-val { font-size: 9px; letter-spacing: 0.06em; color: var(--a); text-align: right; font-variant-numeric: tabular-nums; }
+.macro-slider, .fader { -webkit-appearance: none; appearance: none; height: 3px; background: #222; outline: none; cursor: pointer; }
+.macro-slider::-webkit-slider-thumb, .fader::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--p); box-shadow: 0 0 10px color-mix(in srgb, var(--p) 80%, transparent); cursor: pointer;
+}
+.macro-slider::-moz-range-thumb, .fader::-moz-range-thumb {
+  width: 11px; height: 11px; border: none; border-radius: 50%;
+  background: var(--p); box-shadow: 0 0 10px color-mix(in srgb, var(--p) 80%, transparent); cursor: pointer;
+}
 .layer-list { display: flex; flex-direction: column; gap: 6px; }
 
 .l-btn {
@@ -336,6 +414,48 @@ input[type='range'].fader {
 .axis-read { font-size: 8px; letter-spacing: 0.2em; color: color-mix(in srgb, var(--ink) 35%, transparent); }
 
 /* ------------------------------------------------------------------
+   bottom rack: analysis instruments + keyboard
+------------------------------------------------------------------ */
+.rack-bottom {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 12px; z-index: 56; width: min(760px, calc(100vw - 640px));
+  min-width: 380px; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.rack-bottom > * { pointer-events: auto; }
+.instrument-canvas {
+  display: block; width: 100%; height: 208px;
+  border: 1px solid color-mix(in srgb, var(--p) 34%, transparent);
+  background: #04020a;
+  clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+
+.keyboard {
+  border: 1px solid color-mix(in srgb, var(--p) 30%, transparent);
+  background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.9));
+  padding: 7px 9px 9px;
+  clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.kb-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.kb-keys { display: flex; gap: 2px; height: 54px; }
+.kb-key {
+  flex: 1; cursor: pointer; border: 1px solid #1b1b1b; position: relative;
+  display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px;
+  font-size: 7px; letter-spacing: 0.05em; color: #555; transition: all .06s;
+}
+.kb-key.white { background: linear-gradient(180deg, #14121c, #0a0910); color: #6a6a78; }
+.kb-key.black { background: linear-gradient(180deg, #05040a, #000); color: #4a4a58; flex: 0.55; }
+.kb-key.white:hover { background: linear-gradient(180deg, #241f38, #12101c); color: var(--a); }
+.kb-key.black:hover { background: linear-gradient(180deg, #150f24, #05040a); color: var(--a); }
+.kb-key:active { background: var(--p); color: #000; box-shadow: inset 0 0 16px color-mix(in srgb, var(--h) 60%, transparent); }
+.kb-key:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.engine-fail {
+  position: fixed; inset: 0; z-index: 190; background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 12px; letter-spacing: 0.12em; color: var(--ink); padding: 40px;
+}
+
+/* ------------------------------------------------------------------
    boot screen
 ------------------------------------------------------------------ */
 .boot {
@@ -400,6 +520,18 @@ input[type='range'].fader {
 @media (max-width: 1100px) {
   .reality-panel, .chorus-panel { width: 252px; }
   .center-stack { width: min(340px, 44vw); }
+}
+
+@media (max-width: 1280px) {
+  .rack-left, .rack-right { width: 250px; }
+  .rack-bottom { width: min(620px, calc(100vw - 540px)); }
+  .instrument-canvas { height: 176px; }
+}
+
+@media (max-width: 980px) {
+  .rack-left, .rack-right { display: none; }
+  .rack-bottom { width: calc(100vw - 28px); min-width: 0; }
+  .instrument-canvas { height: 150px; }
 }
 
 @media (max-width: 840px) {

@@ -15,6 +15,7 @@ export default function RealityPanel() {
             className={`r-btn ${i === realityIdx ? 'active' : ''}`}
             style={{ ['--c' as string]: r.p }}
             onClick={() => setReality(i)}
+            title={r.tagline}
           >
             <span className="r-glyph">{r.glyph}</span>
             <span className="r-idx">{r.index} · {r.id}</span>
@@ -22,6 +23,7 @@ export default function RealityPanel() {
           </button>
         ))}
       </div>
+      <div className="panel-foot">each state loads its own patch — the sound and the world move together</div>
     </section>
   );
 }

@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .vite-source-tags.js
 .vercel
+
+# generated worklet bundles (see vite-plugin-oracle-worklet.ts)
+public/__worklets__

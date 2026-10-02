@@ -1,62 +1,43 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { EffectComposer, Bloom, Vignette, ChromaticAberration } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 import { useStore } from './store';
 import { REALITIES } from './lib/content';
-import { U } from './lib/uniforms';
 import { bus } from './lib/engineBus';
-import { damp } from './lib/math';
+import { frames } from './visual/frameDriver';
 import Oracle from './components/scene/Oracle';
 import Particles from './components/scene/Particles';
 import Environment from './components/scene/Environment';
 import FogCurtains from './components/scene/Effects';
 import CameraRig from './components/scene/CameraRig';
+import SceneAudioSync from './components/scene/SceneAudioSync';
+import InstrumentCanvas from './visual/InstrumentCanvas';
 import Boot from './components/ui/Boot';
 import TopBar from './components/ui/TopBar';
 import RealityPanel from './components/ui/RealityPanel';
-import ChorusPanel from './components/ui/ChorusPanel';
+import MixPanel from './components/ui/MixPanel';
+import PatchPanel from './components/ui/PatchPanel';
+import MacroRack from './components/ui/MacroRack';
+import Keyboard from './components/ui/Keyboard';
 import CodexPanel from './components/ui/CodexPanel';
 
-function WorldUniformsSync() {
-  const realityIdx = useStore((s) => s.realityIdx);
-  useEffect(() => {
-    const pal = REALITIES[realityIdx];
-    const c = (hex: string) => new THREE.Color(hex);
-    U.colA.value.lerp(c(pal.colA), 0.12);
-    U.colB.value.lerp(c(pal.colB), 0.12);
-    U.colC.value.lerp(c(pal.colC), 0.12);
-    U.partA.value.lerp(c(pal.particleA), 0.12);
-    U.partB.value.lerp(c(pal.particleB), 0.12);
-    U.gridA.value.lerp(c(pal.gridA), 0.12);
-    U.gridB.value.lerp(c(pal.gridB), 0.12);
-    U.starA.value.lerp(c(pal.starA), 0.12);
-    U.starB.value.lerp(c(pal.starB), 0.12);
-    U.fogU.value.lerp(c(pal.fog), 0.12);
-    U.morph.value = realityIdx === 2 ? 0.85 : realityIdx === 3 ? 0.5 : 0.15;
-  }, [realityIdx]);
-  return null;
-}
-
-function UniformTicker() {
-  useFrameSync();
-  return null;
-}
-
-import { useFrame } from '@react-three/fiber';
-function useFrameSync() {
-  useFrame((state, dt) => {
-    U.time.value = state.clock.elapsedTime;
-    U.uPixelRatio.value = Math.min(2, state.gl.getPixelRatio());
-    U.energy.value = Math.max(0.05, U.energy.value);
-    // morph lerp toward target set above
-  });
-}
-
+/**
+ * Global pointer / keyboard interaction.
+ *
+ * ADR-034: listeners are attached to `window` with `{ passive: true }` where
+ * possible and are removed on unmount. The original implementation attached
+ * a `click` listener without ever checking whether the canvas had focus,
+ * which meant a click on any UI element also fired the oracle. The target
+ * check is explicit and centralised here so no other component has to
+ * remember it.
+ */
 function InteractionLayer() {
   const setReality = useStore((s) => s.setReality);
   const pushLog = useStore((s) => s.pushLog);
+  const discharge = useStore((s) => s.discharge);
+
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       bus.mouseClient.x = e.clientX;
@@ -64,30 +45,31 @@ function InteractionLayer() {
       bus.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       bus.mouse.y = -((e.clientY / window.innerHeight) * 2 - 1);
     };
+    const isCanvas = (e: Event) => (e.target as HTMLElement | null)?.tagName === 'CANVAS';
     const onClick = (e: MouseEvent) => {
-      // clicking deep space (canvas, not UI) fires the oracle
-      const el = e.target as HTMLElement;
-      if (el.tagName === 'CANVAS') {
-        bus.pulse = Math.min(1.4, bus.pulse + 0.7);
-        bus.shake = Math.min(0.4, bus.shake + 0.22);
-        pushLog('ORACLE', 'the gaze acknowledges yours.');
-        // keyboard-free reality cycle on long-press? keep: double click cycles
-      }
+      if (!isCanvas(e)) return;
+      bus.pulse = Math.min(1.4, bus.pulse + 0.7);
+      bus.shake = Math.min(0.4, bus.shake + 0.22);
+      pushLog('ORACLE', 'the gaze acknowledges yours.');
     };
     const onDbl = (e: MouseEvent) => {
-      const el = e.target as HTMLElement;
-      if (el.tagName === 'CANVAS') {
-        const cur = useStore.getState().realityIdx;
-        setReality((cur + 1) % 4);
-      }
+      if (!isCanvas(e)) return;
+      const cur = useStore.getState().realityIdx;
+      setReality((cur + 1) % REALITIES.length);
     };
     const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
       if (e.key === '1') setReality(0);
-      if (e.key === '2') setReality(1);
-      if (e.key === '3') setReality(2);
-      if (e.key === '4') setReality(3);
-      if (e.key.toLowerCase() === 'd') useStore.getState().discharge();
-      if (e.key === ' ') { e.preventDefault(); bus.pulse = Math.min(1.4, bus.pulse + 0.9); bus.shake = Math.min(0.4, bus.shake + 0.3); }
+      else if (e.key === '2') setReality(1);
+      else if (e.key === '3') setReality(2);
+      else if (e.key === '4') setReality(3);
+      else if (e.key.toLowerCase() === 'd') discharge();
+      else if (e.key === ' ') {
+        e.preventDefault();
+        bus.pulse = Math.min(1.4, bus.pulse + 0.9);
+        bus.shake = Math.min(0.4, bus.shake + 0.3);
+      }
     };
     window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('click', onClick);
@@ -99,58 +81,77 @@ function InteractionLayer() {
       window.removeEventListener('dblclick', onDbl);
       window.removeEventListener('keydown', onKey);
     };
-  }, [setReality, pushLog]);
+  }, [setReality, pushLog, discharge]);
   return null;
 }
 
+/**
+ * VHS tear / discharge flash driven by the store's `shiftNonce`.
+ *
+ * ADR-045: the previous version mirrored the nonce into component state and
+ * then cleared it with a timer, which is the "derived state in an effect"
+ * anti-pattern the react-hooks rules correctly flag — it renders twice and
+ * leaves a timer running after unmount. Instead the nonce *is* the key: a
+ * change remounts the overlay divs, their CSS animation runs exactly once,
+ * and the only effect left is the one that writes to the imperative `bus`.
+ */
 function ValenciaShake() {
-  // drives a quick camera shake + VHS overlay via store nonces
   const shiftNonce = useStore((s) => s.shiftNonce);
-  const dischargeNonce = useStore((s) => s.dischargeNonce);
-  const [shiftFx, setShiftFx] = useState(0);
-  const [disFx, setDisFx] = useState(0);
   useEffect(() => {
     if (shiftNonce === 0) return;
-    setShiftFx(shiftNonce);
     bus.shake = 0.38;
     bus.dischargeT = 0.001;
-    const id = window.setTimeout(() => setShiftFx(0), 520);
-    return () => window.clearTimeout(id);
   }, [shiftNonce]);
-  useEffect(() => {
-    if (dischargeNonce === 0) return;
-    setDisFx(dischargeNonce);
-    bus.shake = 0.5;
-    const id = window.setTimeout(() => setDisFx(0), 700);
-    return () => window.clearTimeout(id);
-  }, [dischargeNonce]);
-  useEffect(() => {
-    let raf = 0;
-    const loop = () => {
-      raf = requestAnimationFrame(loop);
-      if (bus.dischargeT > 0 && bus.dischargeT < 1) bus.dischargeT += 0.03;
-      else bus.dischargeT = 0;
-    };
-    loop();
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  if (shiftNonce === 0) return null;
   return (
     <>
-      {shiftFx > 0 && (
-        <>
-          <div key={'g' + shiftFx} className="vhs-glitch" />
-          <div key={'b' + shiftFx} className="vhs-bars" />
-        </>
-      )}
-      {disFx > 0 && <div key={'f' + disFx} className="flash-white" />}
+      <div key={'g' + shiftNonce} className="vhs-glitch" />
+      <div key={'b' + shiftNonce} className="vhs-bars" />
     </>
   );
 }
 
-export default function App() {
-  const started = useStore((s) => s.started);
+/** Applies the initial reality palette before the first paint. */
+function PaletteSeed() {
   const realityIdx = useStore((s) => s.realityIdx);
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    const pal = REALITIES[realityIdx];
+    const r = document.documentElement;
+    r.style.setProperty('--p', pal.p);
+    r.style.setProperty('--s', pal.s);
+    r.style.setProperty('--a', pal.a);
+    r.style.setProperty('--h', pal.h);
+    r.style.setProperty('--fog', pal.fog);
+    document.body.style.backgroundColor = pal.fog;
+    r.dataset.realityIdx = String(realityIdx);
+  }, [realityIdx]);
+  return null;
+}
+
+export default function App() {
+  const status = useStore((s) => s.status);
+  const realityIdx = useStore((s) => s.realityIdx);
+  const error = useStore((s) => s.error);
   const [glError, setGlError] = useState(false);
+
+  // ---- lifecycle: the engine must never outlive the page -------------
+  useEffect(() => {
+    const onUnload = () => { frames.dispose(); };
+    window.addEventListener('pagehide', onUnload);
+    return () => window.removeEventListener('pagehide', onUnload);
+  }, []);
+
+  // ---- suspend the context when the tab is hidden ---------------------
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) frames.dispose();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   return (
     <div className="app-root">
@@ -158,16 +159,13 @@ export default function App() {
         dpr={[1, 1.75]}
         camera={{ position: [0, 2.4, 10.4], fov: 55, near: 0.1, far: 600 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
-        onCreated={({ gl }) => {
-          gl.setClearColor(new THREE.Color(REALITIES[0].fog), 1);
-        }}
+        onCreated={({ gl }) => { gl.setClearColor(new THREE.Color(REALITIES[realityIdx].fog), 1); }}
         onError={() => setGlError(true)}
       >
         <Suspense fallback={null}>
-          <UniformTicker />
-          <WorldUniformsSync />
           <CameraRig />
-          <fog attach="fog" args={[REALITIES[0].fog, 18, 140]} />
+          <fog attach="fog" args={[REALITIES[realityIdx].fog, 18, 140]} />
+          <SceneAudioSync />
           <Oracle />
           <Environment />
           <Particles />
@@ -180,22 +178,31 @@ export default function App() {
         </Suspense>
       </Canvas>
 
-      {/* systemic overlays */}
+      {/* systemic video-texture overlays */}
       <div className="vignette-css" />
       <div className="scanlines" />
       <div className="scanband" />
       <div className="trackline" />
       <div className="grain" />
-
-      {/* chrome frame */}
       <div className="corner c-tl" /><div className="corner c-tr" />
       <div className="corner c-bl" /><div className="corner c-br" />
       <div className="side-text left">ATLAS DEEP · SECTOR 7G · ANOMALY WATCH</div>
       <div className="side-text right">SIGIL ARCHIVE · NEVER ROTATE THE THIRD DIAGRAM</div>
 
+      <PaletteSeed />
       <TopBar />
-      <RealityPanel />
-      <ChorusPanel />
+      <div className="rack-left">
+        <RealityPanel />
+        <PatchPanel />
+      </div>
+      <div className="rack-right">
+        <MixPanel />
+        <MacroRack />
+      </div>
+      <div className="rack-bottom">
+        <InstrumentCanvas />
+        <Keyboard />
+      </div>
       <CodexPanel />
       <ValenciaShake />
       <InteractionLayer />
@@ -206,12 +213,24 @@ export default function App() {
           <div>
             <div style={{ fontSize: 22, letterSpacing: '0.3em', marginBottom: 12 }}>SIGNAL LOST</div>
             <div>THIS ENGINE REQUIRES WEBGL.</div>
-            <div style={{ marginTop: 10, color: 'var(--dim)' }}>the oracle does not dream in fallback renderers.<br/>try chrome, edge, or another recent browser.</div>
+            <div style={{ marginTop: 10, color: 'var(--dim)' }}>
+              the oracle does not dream in fallback renderers.<br />try chrome, edge, or another recent browser.
+            </div>
           </div>
         </div>
       )}
-      {!started && null}
-      <div style={{ display: 'none' }}>{realityIdx}</div>
+
+      {status === 'failed' && (
+        <div className="engine-fail">
+          <div>
+            <div style={{ fontSize: 18, letterSpacing: '0.25em', marginBottom: 10, color: 'var(--h)' }}>ENGINE FAULT</div>
+            <div style={{ maxWidth: 560, lineHeight: 1.6 }}>{error}</div>
+            <div style={{ marginTop: 12, color: 'var(--dim)', fontSize: 12 }}>
+              the visual layer is still live — the oracle is merely mute.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

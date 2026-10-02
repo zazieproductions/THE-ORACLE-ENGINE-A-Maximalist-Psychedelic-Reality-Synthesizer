@@ -1,29 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { audio } from  '../../lib/audioEngine';
 import { useStore } from '../../store';
-import { REALITIES } from  '../../lib/content';
 
 const BOOT_LINES = [
   '> contacting relay ………………… OK',
   '> decompressing oracle core … OK',
-  '> calibrating reality buffers … OK',
+  '> loading audioworklet dsp …',
+  '> allocating shared analysis ring …',
   '> WARNING: local physics may disagree',
 ];
 
 export default function Boot() {
   const begin = useStore((s) => s.begin);
-  const started = useStore((s) => s.started);
+  const status = useStore((s) => s.status);
   const [lines, setLines] = useState(0);
 
   useEffect(() => {
+    if (status !== 'idle') return;
     const id = window.setInterval(() => setLines((l) => Math.min(l + 1, BOOT_LINES.length)), 620);
     return () => window.clearInterval(id);
-  }, []);
+  }, [status]);
+
+  const done = status === 'running' || status === 'failed';
 
   return (
     <AnimatePresence>
-      {!started && (
+      {!done && (
         <motion.div
           className="boot"
           exit={{ opacity: 0, transition: { duration: 0.7, ease: 'easeInOut' } }}
@@ -38,10 +40,16 @@ export default function Boot() {
                 <div key={i} className="boot-line">{l}</div>
               ))}
             </div>
-            <button className="boot-btn" onClick={() => { audio.start(); begin(); }}>
-              INITIALIZE DESCENT
+            <button
+              className="boot-btn"
+              disabled={status === 'booting'}
+              onClick={() => { void begin(); }}
+            >
+              {status === 'booting' ? 'INITIALIZING…' : 'INITIALIZE DESCENT'}
             </button>
-            <div className="boot-warn">headphones recommended · the machine will consume your attention</div>
+            <div className="boot-warn">
+              headphones recommended · custom audioworklet dsp · the machine will consume your attention
+            </div>
           </div>
         </motion.div>
       )}
