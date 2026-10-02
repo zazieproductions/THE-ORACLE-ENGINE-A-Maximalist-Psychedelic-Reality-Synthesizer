@@ -25,7 +25,9 @@ export default function CodexPanel() {
               return (
                 <>
                   <div className="codex-head">
-                    <span className="codex-kind">▚ {e.kind} · MEMO {String(codex.entryIndex + 1).padStart(2, '0')}/{String(CODEX.length).padStart(2, '0')}</span>
+                    <span className="codex-kind">
+                      ▚ {e.kind} · MEMO {String(codex.entryIndex + 1).padStart(2, '0')}/{String(CODEX.length).padStart(2, '0')}
+                    </span>
                     <button className="codex-close" onClick={codexClose} aria-label="close">✕</button>
                   </div>
                   <div className="codex-title font-display">{e.title}</div>
@@ -36,7 +38,11 @@ export default function CodexPanel() {
                     ) : (
                       <button className="codex-action" onClick={codexAct}>{e.action}</button>
                     )}
-                    <button className="codex-action" style={{ borderColor: 'color-mix(in srgb, var(--ink) 30%, transparent)', background: 'transparent' }} onClick={codexNext}>
+                    <button
+                      className="codex-action"
+                      style={{ borderColor: 'color-mix(in srgb, var(--ink) 30%, transparent)', background: 'transparent' }}
+                      onClick={codexNext}
+                    >
                       NEXT MEMO →
                     </button>
                   </div>
@@ -50,17 +56,13 @@ export default function CodexPanel() {
       </AnimatePresence>
 
       <EventLog />
-      <div className="hint">
-        <div className="hint-text">drag to orbit · move the gaze across the void · click the sigils</div>
-        <div className="axis-read">X-AXIS · ORBIT&nbsp;&nbsp;&nbsp;Y-AXIS · PARALLAX&nbsp;&nbsp;&nbsp;Z-AXIS · DEPTH</div>
-      </div>
     </div>
   );
 }
 
 function CodexPrompt() {
   const openCodex = useStore((s) => s.openCodex);
-  const started = useStore((s) => s.started);
+  const started = useStore((s) => s.status) === 'running';
   if (!started) return null;
   return (
     <motion.button

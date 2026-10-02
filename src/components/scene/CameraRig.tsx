@@ -14,6 +14,11 @@ export default function CameraRig() {
   const { camera } = useThree();
   const look = useRef(new THREE.Vector3(0, 0.4, 0));
   const smooth = useRef({ x: 0, y: 0 });
+  // ADR-048: this was `new THREE.Vector3(...)` inside the frame callback —
+  // one allocation per frame, per frame, forever. The camera rig is the one
+  // component that runs at display rate with no budget, so the target is
+  // preallocated and mutated in place.
+  const target = useRef(new THREE.Vector3());
 
   useFrame((state, dt) => {
     const t = state.clock.elapsedTime;
@@ -29,12 +34,12 @@ export default function CameraRig() {
     const cy = 2.1 + Math.sin(t * 0.11) * 0.7;
 
     // parallax pull toward the look target
-    const target = new THREE.Vector3(
+    target.current.set(
       cx + smooth.current.x * -2.2,
       cy + smooth.current.y * -1.2,
       cz,
     );
-    camera.position.lerp(target, Math.min(1, dt * 1.6));
+    camera.position.lerp(target.current, Math.min(1, dt * 1.6));
 
     // shake
     bus.shake = Math.max(0, bus.shake - dt * 0.9);
